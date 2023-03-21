@@ -98,7 +98,7 @@ def get_dataset(directory, num_classes=60, batch_size=32, drop_remainder=False,
         features = tf.io.parse_single_example(example_proto, feature_description)
         data =  tf.io.parse_tensor(features['features'], tf.float32)
         label = tf.one_hot(features['label'], num_classes)
-        data = tf.reshape(data, (3, 300, 25, 2))
+        data = tf.reshape(data, (3, 48, 115, 1))
         return data, label
 
     records = [os.path.join(directory, file) for file in os.listdir(directory) if file.endswith("tfrecord")]

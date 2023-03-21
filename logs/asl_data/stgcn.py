@@ -1,4 +1,4 @@
-from graph.asl_data import Graph
+from graph.ntu_rgb_d import Graph
 import tensorflow as tf
 import numpy as np
 
