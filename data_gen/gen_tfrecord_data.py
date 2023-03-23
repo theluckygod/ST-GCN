@@ -6,6 +6,9 @@ from tqdm import tqdm
 import tensorflow as tf
 from pathlib import Path
 
+from gen_joint_data import max_body_true, num_joint, max_frame, label_shape
+
+
 def _bytes_feature(value):
   """Returns a bytes_list from a string / byte."""
   if isinstance(value, type(tf.constant(0))):
@@ -43,7 +46,7 @@ def gen_tfrecord_data(num_shards, label_path, data_path, dest_folder, shuffle):
             _, labels = pickle.load(f, encoding='latin1')
 
     # Datashape: Total_samples, 3, 300, 25, 2
-    data   = np.load(data_path, mmap_mode='r')
+    data   = np.memmap(data_path, dtype='float32', mode='r', shape=(label_shape, 3, max_frame, num_joint, max_body_true))
     labels = np.array(labels)
 
     if len(labels) != len(data):

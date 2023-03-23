@@ -22,7 +22,7 @@ def get_parser():
     parser.add_argument(
         '--base-lr', type=float, default=1e-1, help='initial learning rate')
     parser.add_argument(
-        '--num-classes', type=int, default=60, help='number of classes in dataset')
+        '--num-classes', type=int, default=250, help='number of classes in dataset')
     parser.add_argument(
         '--batch-size', type=int, default=64, help='training batch size')
     parser.add_argument(
@@ -31,19 +31,19 @@ def get_parser():
         '--save-freq', type=int, default=10, help='periodicity of saving model weights')
     parser.add_argument(
         '--checkpoint-path',
-        default="checkpoints/STGCN",
+        default="checkpoints/asl_data",
         help='folder to store model weights')
     parser.add_argument(
         '--log-dir',
-        default="logs/STGCN",
+        default="logs/asl_data",
         help='folder to store model-definition/training-logs/hyperparameters')
     parser.add_argument(
         '--train-data-path',
-        default="data/ntu/xview/train_data",
+        default="data/asl_data/asl_data",
         help='path to folder with training dataset tfrecord files')
     parser.add_argument(
         '--test-data-path',
-        default="data/ntu/xview/val_data",
+        default="data/asl_data/asl_data",
         help='path to folder with testing dataset tfrecord files')
     parser.add_argument(
         '--steps',
@@ -141,7 +141,7 @@ def train_step(features, labels):
     train_acc(labels, logits)
     train_acc_top_5(labels, logits)
     cross_entropy_loss(loss)
-  strategy.experimental_run_v2(step_fn, args=(features, labels,))
+  strategy.run(step_fn, args=(features, labels,))
 
 
 if __name__ == "__main__":

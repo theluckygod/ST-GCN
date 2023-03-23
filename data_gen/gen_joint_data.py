@@ -58,7 +58,7 @@ def gendata(data_path, out_path):
             sample_name.append(frame_dir)
             sample_label.append(label)
 
-    fp = pre_normalization(fp)
+    # fp = pre_normalization(fp)
     with open('{}/{}_label.pkl'.format(out_path, "skeleton"), 'wb') as f:
         pickle.dump((sample_name, list(sample_label)), f)
 
