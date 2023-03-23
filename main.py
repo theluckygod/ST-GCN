@@ -14,6 +14,8 @@ config = ConfigProto()
 config.gpu_options.allow_growth = True
 session = InteractiveSession(config=config)
 
+tf.random.set_seed(42)
+
 
 def get_parser():
     # parameter priority: command line > config > default
@@ -140,6 +142,8 @@ def train_step(features, labels):
     optimizer.apply_gradients(list(zip(grads, model.trainable_variables)))
     train_acc(labels, logits)
     train_acc_top_5(labels, logits)
+    epoch_train_acc(labels, logits)
+    epoch_train_acc_top_5(labels, logits)
     cross_entropy_loss(loss)
   strategy.run(step_fn, args=(features, labels,))
 
@@ -205,6 +209,8 @@ if __name__ == "__main__":
         cross_entropy_loss   = tf.keras.metrics.Mean(name='cross_entropy_loss')
         train_acc            = tf.keras.metrics.CategoricalAccuracy(name='train_acc')
         train_acc_top_5      = tf.keras.metrics.TopKCategoricalAccuracy(name='train_acc_top_5')
+        epoch_train_acc      = tf.keras.metrics.CategoricalAccuracy(name='epoch_train_acc')
+        epoch_train_acc_top_5= tf.keras.metrics.TopKCategoricalAccuracy(name='epoch_train_acc_top_5')
 
     epoch_test_acc       = tf.keras.metrics.CategoricalAccuracy(name='epoch_test_acc')
     epoch_test_acc_top_5 = tf.keras.metrics.TopKCategoricalAccuracy(name='epoch_test_acc_top_5')
@@ -257,6 +263,18 @@ if __name__ == "__main__":
                 train_acc_top_5.reset_states()
                 train_iter += 1
 
+            with summary_writer.as_default():
+                tf.summary.scalar("epoch_train_acc",
+                                epoch_train_acc.result(),
+                                step=epoch)
+                tf.summary.scalar("epoch_train_acc_top_5",
+                                epoch_train_acc_top_5.result(),
+                                step=epoch)
+            print("epoch_train_acc:      ", epoch_train_acc.result())
+            print("epoch_train_acc_top_5:", epoch_train_acc_top_5.result())
+            epoch_train_acc.reset_states()
+            epoch_train_acc_top_5.reset_states()
+
         print("Testing: ")
         for features, labels in tqdm(test_data):
             y_pred = test_step(features)
@@ -281,6 +299,8 @@ if __name__ == "__main__":
             tf.summary.scalar("epoch_test_acc_top_5",
                               epoch_test_acc_top_5.result(),
                               step=epoch)
+        print("epoch_test_acc:      ", epoch_test_acc.result())
+        print("epoch_test_acc_top_5:", epoch_test_acc_top_5.result())
         epoch_test_acc.reset_states()
         epoch_test_acc_top_5.reset_states()
 
