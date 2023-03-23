@@ -76,7 +76,7 @@ if __name__ == '__main__':
                         help='number of files to split dataset into')
     parser.add_argument('--label-path',
                         # required=True,
-                        default="../data/asl_data/skeleton_heatmap.pickle_label.pkl",
+                        default="../data/asl_data/skeleton_label.pkl",
                         help='path to pkl file with labels')
     parser.add_argument('--shuffle',
                         # required=True,
@@ -84,7 +84,7 @@ if __name__ == '__main__':
                         help='setting it to True will shuffle the labels and data together')
     parser.add_argument('--data-path',
                         # required=True,
-                        default="../data/asl_data/skeleton_heatmap.pickle_data_joint.npy",
+                        default="../data/asl_data/skeleton_data_joint.npy",
                         help='path to npy file with data')
     parser.add_argument('--dest-folder',
                         # required=True,

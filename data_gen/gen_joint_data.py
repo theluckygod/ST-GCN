@@ -36,6 +36,10 @@ def extract_interest_frames(keypoint, max_frame): # keypoint.shape (T,V,C)
     return keypoint
 
 def gendata(data_path, out_path):
+    fp = np.memmap('{}/{}_data_joint.npy'.format(out_path, "skeleton"), dtype='float32', mode='w+', shape=(label_shape,3, max_frame, num_joint, max_body_true))
+    sample_name = []
+    sample_label = []
+
     for filename in tqdm(os.listdir(data_path)):
         if not filename.endswith(".pickle"):
             continue
@@ -43,25 +47,20 @@ def gendata(data_path, out_path):
         with open(os.path.join(data_path, filename), "rb") as f:
             data_dict = pickle.load(f)
 
-        fp = np.zeros((len(data_dict), 3, max_frame, num_joint, max_body_true), dtype=np.float32)
-        sample_name = []
-        sample_label = []
-        for idx, obj in tqdm(enumerate(data_dict.values())):
+        for obj in tqdm(data_dict.values()):
             keypoint = obj["keypoint"]
             label = encoder(obj["label"])
             frame_dir = obj["frame_dir"]
 
             features = extract_interest_frames(keypoint, max_frame)
 
-            fp[idx, :, 0:features.shape[1], :, :] = features
+            fp[len(sample_name), :, 0:features.shape[1], :, :] = features
             sample_name.append(frame_dir)
             sample_label.append(label)
 
-        fp = pre_normalization(fp)
-        np.save('{}/{}_data_joint.npy'.format(out_path, filename), fp)
-        with open('{}/{}_label.pkl'.format(out_path, filename), 'wb') as f:
-            pickle.dump((sample_name, list(sample_label)), f)
-
+    fp = pre_normalization(fp)
+    with open('{}/{}_label.pkl'.format(out_path, "skeleton"), 'wb') as f:
+        pickle.dump((sample_name, list(sample_label)), f)
 
 
 if __name__ == '__main__':
