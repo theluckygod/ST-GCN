@@ -114,6 +114,7 @@ def get_skeleton_edges():
 
 
 SKELETON_EDGES = get_skeleton_edges()
+LANDMARKS = lip_landmarks + left_hand_landmarks + pose_landmarks + right_hand_landmarks
 
 if __name__ == "__main__":
     print("ALL SKELETON_EDGES\n", SKELETON_EDGES)
