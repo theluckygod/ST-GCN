@@ -39,11 +39,11 @@ def get_parser():
         help='folder to store model-definition/training-logs/hyperparameters')
     parser.add_argument(
         '--train-data-path',
-        default="data/asl_data/asl_data",
+        default="data/asl_data/asl_data_train",
         help='path to folder with training dataset tfrecord files')
     parser.add_argument(
         '--test-data-path',
-        default="data/asl_data/asl_data",
+        default="data/asl_data/asl_data_test",
         help='path to folder with testing dataset tfrecord files')
     parser.add_argument(
         '--steps',

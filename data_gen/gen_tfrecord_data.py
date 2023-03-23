@@ -5,6 +5,8 @@ import numpy as np
 from tqdm import tqdm
 import tensorflow as tf
 from pathlib import Path
+import random
+random.seed(10)
 
 from gen_joint_data import max_body_true, num_joint, max_frame, label_shape
 
@@ -25,6 +27,58 @@ def serialize_example(features, label):
         'label'     : _int64_feature(label)
     }
     return tf.train.Example(features=tf.train.Features(feature=feature)).SerializeToString()
+
+def split_train_val(data, labels, ratio=0.15):
+    class_dict = {}
+    for idx, label in enumerate(labels):
+        tmp = class_dict.get(label, [])
+        tmp.append(idx)
+        class_dict[label] = tmp
+
+    train_selected = []
+    val_selected = []
+    train_y = []
+    val_y = []
+    for key in class_dict:
+        label_list = class_dict[key]
+        val_labels_tmp = random.sample(label_list, round(len(label_list) * ratio))
+        val_selected += val_labels_tmp
+        
+        for l in label_list:
+            if l not in val_labels_tmp:
+                train_selected.append(l)
+
+        train_y += [key] * (len(label_list) - len(val_labels_tmp))
+        val_y += [key] * len(val_labels_tmp)
+
+    train_x = data[train_selected, ...]
+    val_x = data[val_selected, ...]
+
+
+    return train_x, np.array(train_y), val_x, np.array(val_y)
+
+def save_data(data, labels, data_path, dest_folder, num_shards, shuffle):
+    if len(labels) != len(data):
+        print("Data and label lengths didn't match!")
+        print("Data size: {} | Label Size: {}".format(data.shape, labels.shape))
+        raise ValueError("Data and label lengths didn't match!")
+
+    print("Data shape:", data.shape)
+    if shuffle:
+        p = np.random.permutation(len(labels))
+        labels = labels[p]
+        data = data[p]
+
+    dest_folder = Path(dest_folder)
+    if not (dest_folder.exists()):
+        os.mkdir(dest_folder)
+
+    step = len(labels)//num_shards
+    for shard in tqdm(range(num_shards)):
+        tfrecord_data_path = os.path.join(dest_folder, data_path.name.split(".")[0]+"-"+str(shard)+".tfrecord")
+        with tf.io.TFRecordWriter(tfrecord_data_path) as writer:
+            for i in range(shard*step, (shard*step)+step if shard < num_shards-1 else len(labels)):
+                writer.write(serialize_example(data[i], labels[i]))
 
 def gen_tfrecord_data(num_shards, label_path, data_path, dest_folder, shuffle):
     label_path = Path(label_path)
@@ -47,29 +101,10 @@ def gen_tfrecord_data(num_shards, label_path, data_path, dest_folder, shuffle):
 
     # Datashape: Total_samples, 3, 300, 25, 2
     data   = np.memmap(data_path, dtype='float32', mode='r', shape=(label_shape, 3, max_frame, num_joint, max_body_true))
-    labels = np.array(labels)
-
-    if len(labels) != len(data):
-        print("Data and label lengths didn't match!")
-        print("Data size: {} | Label Size: {}".format(data.shape, labels.shape))
-        return -1
-
-    print("Data shape:", data.shape)
-    if shuffle:
-        p = np.random.permutation(len(labels))
-        labels = labels[p]
-        data = data[p]
-
-    dest_folder = Path(dest_folder)
-    if not (dest_folder.exists()):
-        os.mkdir(dest_folder)
-
-    step = len(labels)//num_shards
-    for shard in tqdm(range(num_shards)):
-        tfrecord_data_path = os.path.join(dest_folder, data_path.name.split(".")[0]+"-"+str(shard)+".tfrecord")
-        with tf.io.TFRecordWriter(tfrecord_data_path) as writer:
-            for i in range(shard*step, (shard*step)+step if shard < num_shards-1 else len(labels)):
-                writer.write(serialize_example(data[i], labels[i]))
+    train_x, train_y, val_x, val_y = split_train_val(data, labels)
+    save_data(train_x, train_y, data_path, dest_folder + "_train", num_shards, shuffle)
+    save_data(val_x, val_y, data_path, dest_folder + "_test", num_shards, shuffle)
+    
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='NTU-RGB-D Data TFRecord Converter')
