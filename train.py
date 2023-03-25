@@ -141,9 +141,7 @@ def train_step(features, labels):
     grads = tape.gradient(loss, model.trainable_variables)
     optimizer.apply_gradients(list(zip(grads, model.trainable_variables)))
     train_acc(labels, logits)
-    train_acc_top_5(labels, logits)
     epoch_train_acc(labels, logits)
-    epoch_train_acc_top_5(labels, logits)
     cross_entropy_loss(loss)
   strategy.run(step_fn, args=(features, labels,))
 
@@ -204,17 +202,14 @@ if __name__ == "__main__":
         ckpt_manager = tf.train.CheckpointManager(ckpt,
                                                   checkpoint_path,
                                                   max_to_keep=5)
+        ckpt.restore(ckpt_manager.latest_checkpoint).expect_partial()
 
         # keras metrics to hold accuracies and loss
         cross_entropy_loss   = tf.keras.metrics.Mean(name='cross_entropy_loss')
         train_acc            = tf.keras.metrics.CategoricalAccuracy(name='train_acc')
-        train_acc_top_5      = tf.keras.metrics.TopKCategoricalAccuracy(name='train_acc_top_5')
         epoch_train_acc      = tf.keras.metrics.CategoricalAccuracy(name='epoch_train_acc')
-        epoch_train_acc_top_5= tf.keras.metrics.TopKCategoricalAccuracy(name='epoch_train_acc_top_5')
 
     epoch_test_acc       = tf.keras.metrics.CategoricalAccuracy(name='epoch_test_acc')
-    epoch_test_acc_top_5 = tf.keras.metrics.TopKCategoricalAccuracy(name='epoch_test_acc_top_5')
-    test_acc_top_5       = tf.keras.metrics.TopKCategoricalAccuracy(name='test_acc_top_5')
     test_acc             = tf.keras.metrics.CategoricalAccuracy(name='test_acc')
     summary_writer       = tf.summary.create_file_writer(log_dir)
 
@@ -239,6 +234,14 @@ if __name__ == "__main__":
       tf.summary.trace_export(name="testing_trace", step=0)
     tf.summary.trace_off()
 
+    print("\n=========== First test ===========")
+    for features, labels in tqdm(test_data):
+        y_pred = test_step(features)
+        epoch_test_acc(labels, y_pred)
+    print("epoch_test_acc:      ", epoch_test_acc.result())
+    epoch_test_acc.reset_states()
+    print("==================================\n")
+    
     # start training
     train_iter = 0
     test_iter = 0
@@ -255,54 +258,34 @@ if __name__ == "__main__":
                     tf.summary.scalar("train_acc",
                                       train_acc.result(),
                                       step=train_iter)
-                    tf.summary.scalar("train_acc_top_5",
-                                      train_acc_top_5.result(),
-                                      step=train_iter)
                 cross_entropy_loss.reset_states()
                 train_acc.reset_states()
-                train_acc_top_5.reset_states()
                 train_iter += 1
 
             with summary_writer.as_default():
                 tf.summary.scalar("epoch_train_acc",
                                 epoch_train_acc.result(),
                                 step=epoch)
-                tf.summary.scalar("epoch_train_acc_top_5",
-                                epoch_train_acc_top_5.result(),
-                                step=epoch)
             print("epoch_train_acc:      ", epoch_train_acc.result())
-            print("epoch_train_acc_top_5:", epoch_train_acc_top_5.result())
             epoch_train_acc.reset_states()
-            epoch_train_acc_top_5.reset_states()
 
         print("Testing: ")
         for features, labels in tqdm(test_data):
             y_pred = test_step(features)
             test_acc(labels, y_pred)
             epoch_test_acc(labels, y_pred)
-            test_acc_top_5(labels, y_pred)
-            epoch_test_acc_top_5(labels, y_pred)
             with summary_writer.as_default():
                 tf.summary.scalar("test_acc",
                                   test_acc.result(),
                                   step=test_iter)
-                tf.summary.scalar("test_acc_top_5",
-                                  test_acc_top_5.result(),
-                                  step=test_iter)
             test_acc.reset_states()
-            test_acc_top_5.reset_states()
             test_iter += 1
         with summary_writer.as_default():
             tf.summary.scalar("epoch_test_acc",
                               epoch_test_acc.result(),
                               step=epoch)
-            tf.summary.scalar("epoch_test_acc_top_5",
-                              epoch_test_acc_top_5.result(),
-                              step=epoch)
         print("epoch_test_acc:      ", epoch_test_acc.result())
-        print("epoch_test_acc_top_5:", epoch_test_acc_top_5.result())
         epoch_test_acc.reset_states()
-        epoch_test_acc_top_5.reset_states()
 
         if (epoch + 1) % save_freq == 0:
             ckpt_save_path = ckpt_manager.save()
