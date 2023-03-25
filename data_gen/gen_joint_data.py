@@ -27,8 +27,12 @@ def extract_interest_frames(keypoint, max_frame): # keypoint.shape (T,V,C)
     keypoint = keypoint[:, LANDMARKS, :]
 
     if T >= max_frame:
-        keypoint = keypoint[:max_frame, ...]
-    else:
+        choiced_frames = list(range(0, T, round(T / max_frame)))
+        choiced_frames = choiced_frames[:max_frame]
+        keypoint = keypoint[choiced_frames, ...]
+        T, _, _ = keypoint.shape
+    
+    if T < max_frame:
         keypoint = np.pad(keypoint, [(0, max_frame - T), (0, 0), (0, 0)], 'constant', constant_values=0)
 
     keypoint = np.moveaxis(keypoint, [0, 1, 2], [-2, -1, 0])[..., np.newaxis] # (T,V,C) -> (C,T,V,M)
