@@ -19,10 +19,12 @@ p2s_map  = {v:k for k,v in OBJ_ITEMS.items()}
 encoder  = lambda x: s2p_map.get(x.lower())
 decoder  = lambda x: p2s_map.get(x)
 
-def clean_skeleton(data0):
-    frames_nansum = np.nanmean(data0, axis=[1,2])
+def clean_skeleton(keypoint):
+    data0 = np.array(keypoint, dtype=np.float32)
+    frames_nansum = np.nanmean(data0, axis=(1,2))
     non_empty_frames_idxs = np.where(frames_nansum > 0)
-    non_empty_frames_idxs = np.squeeze(non_empty_frames_idxs, axis=1)
+    non_empty_frames_idxs = np.array(non_empty_frames_idxs, dtype=np.int32)
+    non_empty_frames_idxs = np.squeeze(non_empty_frames_idxs, axis=0)
     data = data0[non_empty_frames_idxs, :, :]
     return data
 
