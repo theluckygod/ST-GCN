@@ -32,20 +32,19 @@ class SGCN(tf.keras.Model):
                                            kernel_size=1,
                                            padding='same',
                                            kernel_initializer=INITIALIZER,
-                                           data_format='channels_first',
                                            kernel_regularizer=REGULARIZER)
 
-    # N, C, T, V
+    # N, T, V, C
     def call(self, x, A, training):
         x = self.conv(x)
 
         N = tf.shape(x)[0]
-        C = tf.shape(x)[1]
-        T = tf.shape(x)[2]
-        V = tf.shape(x)[3]
+        T = tf.shape(x)[1]
+        V = tf.shape(x)[2]
+        C = tf.shape(x)[3]
 
-        x = tf.reshape(x, [N, self.kernel_size, C//self.kernel_size, T, V])
-        x = tf.einsum('nkctv,kvw->nctw', x, A)
+        x = tf.reshape(x, [N, T, V, self.kernel_size, C//self.kernel_size])
+        x = tf.einsum('ntvkc,vkw->ntwc', x, A)
         return x, A
 
 
@@ -76,16 +75,15 @@ class STGCN(tf.keras.Model):
         self.sgcn = SGCN(filters, kernel_size=kernel_size[1])
 
         self.tgcn = tf.keras.Sequential()
-        self.tgcn.add(tf.keras.layers.BatchNormalization(axis=1))
+        self.tgcn.add(tf.keras.layers.BatchNormalization())
         self.tgcn.add(tf.keras.layers.Activation(activation))
         self.tgcn.add(tf.keras.layers.Conv2D(filters,
                                                 kernel_size=[kernel_size[0], 1],
                                                 strides=[stride, 1],
                                                 padding='same',
                                                 kernel_initializer=INITIALIZER,
-                                                data_format='channels_first',
                                                 kernel_regularizer=REGULARIZER))
-        self.tgcn.add(tf.keras.layers.BatchNormalization(axis=1))
+        self.tgcn.add(tf.keras.layers.BatchNormalization())
 
         self.act = tf.keras.layers.Activation(activation)
 
@@ -100,9 +98,8 @@ class STGCN(tf.keras.Model):
                                                         strides=[stride, 1],
                                                         padding='same',
                                                         kernel_initializer=INITIALIZER,
-                                                        data_format='channels_first',
                                                         kernel_regularizer=REGULARIZER))
-            self.residual.add(tf.keras.layers.BatchNormalization(axis=1))
+            self.residual.add(tf.keras.layers.BatchNormalization())
 
     def call(self, x, A, training):
         res = self.residual(x, training=training)
@@ -133,6 +130,7 @@ class Model(tf.keras.Model):
                              dtype=tf.float32,
                              trainable=False,
                              name='adjacency_matrix')
+        self.A = tf.transpose(self.A, perm=[1, 0, 2])
 
         self.data_bn = tf.keras.layers.BatchNormalization(axis=1)
 
@@ -148,13 +146,12 @@ class Model(tf.keras.Model):
         self.STGCN_layers.append(STGCN(256))
         self.STGCN_layers.append(STGCN(256))
 
-        self.pool = tf.keras.layers.GlobalAveragePooling2D(data_format='channels_first')
+        self.pool = tf.keras.layers.GlobalAveragePooling2D()
 
         self.logits = tf.keras.layers.Conv2D(num_classes,
                                              kernel_size=1,
                                              padding='same',
                                              kernel_initializer=INITIALIZER,
-                                             data_format='channels_first',
                                              kernel_regularizer=REGULARIZER)
 
     def call(self, x, training):
@@ -168,17 +165,17 @@ class Model(tf.keras.Model):
         x = tf.reshape(x, [N * M, V * C, T])
         x = self.data_bn(x, training=training)
         x = tf.reshape(x, [N, M, V, C, T])
-        x = tf.transpose(x, perm=[0, 1, 3, 4, 2])
-        x = tf.reshape(x, [N * M, C, T, V])
+        x = tf.transpose(x, perm=[0, 1, 4, 2, 3]) # N, M, T, V, C
+        x = tf.reshape(x, [N * M, T, V, C])
 
         A = self.A
         for layer in self.STGCN_layers:
             x, A = layer(x, A, training=training)
 
-        # N*M,C,T,V
+        # N*M,T,V,C
         x = self.pool(x)
-        x = tf.reshape(x, [N, M, -1, 1, 1])
-        x = tf.reduce_mean(x, axis=1)
+        x = tf.reshape(x, [N, M, 1, 1, -1])
+        x = tf.reduce_mean(x, axis=-1)
         x = self.logits(x)
         x = tf.reshape(x, [N, -1])
 

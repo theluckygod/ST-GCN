@@ -6,7 +6,6 @@ from tqdm import tqdm
 import numpy as np
 
 sys.path.extend(['../'])
-from data_gen.preprocess import pre_normalization
 from graph.mediapipe_utils import LANDMARKS
 
 max_body_true = 1
@@ -20,17 +19,23 @@ p2s_map  = {v:k for k,v in OBJ_ITEMS.items()}
 encoder  = lambda x: s2p_map.get(x.lower())
 decoder  = lambda x: p2s_map.get(x)
 
+def clean_skeleton(data0):
+    frames_nansum = np.nanmean(data0, axis=[1,2])
+    non_empty_frames_idxs = np.where(frames_nansum > 0)
+    non_empty_frames_idxs = np.squeeze(non_empty_frames_idxs, axis=1)
+    data = data0[non_empty_frames_idxs, :, :]
+    return data
 
 def extract_interest_frames(keypoint, max_frame): # keypoint.shape (T,V,C)
-    T, V, C = keypoint.shape
+    T = keypoint.shape[0]
 
     keypoint = keypoint[:, LANDMARKS, :]
 
     if T >= max_frame:
-        choiced_frames = list(range(0, T, round(T / max_frame)))
+        choiced_frames = list(range(0, T, round(T // max_frame)))
         choiced_frames = choiced_frames[:max_frame]
         keypoint = keypoint[choiced_frames, ...]
-        T, _, _ = keypoint.shape
+        T = keypoint.shape[0]
     
     if T < max_frame:
         keypoint = np.pad(keypoint, [(0, max_frame - T), (0, 0), (0, 0)], 'constant', constant_values=0)
@@ -56,13 +61,13 @@ def gendata(data_path, out_path):
             label = encoder(obj["label"])
             frame_dir = obj["frame_dir"]
 
+            keypoint = clean_skeleton(keypoint)
             features = extract_interest_frames(keypoint, max_frame)
 
             fp[len(sample_name), :, 0:features.shape[1], :, :] = features
             sample_name.append(frame_dir)
             sample_label.append(label)
 
-    # fp = pre_normalization(fp)
     with open('{}/{}_label.pkl'.format(out_path, "skeleton"), 'wb') as f:
         pickle.dump((sample_name, list(sample_label)), f)
 
